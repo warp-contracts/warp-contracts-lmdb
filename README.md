@@ -1,15 +1,18 @@
-# Warp Distributed Execution Network
-Warp DEN is a network of nodes that performs an execution of registered SmartWeave contracts.
-The consensus between the nodes is achieved via [Snowball Loop algorithm](https://ipfs.io/ipfs/QmUy4jh5mGNZvLkjies1RWM4YuvJh5o2FYopNPVYwrRVGV) (page 4., Figure 3.).
+# Warp Contracts Lmdb Cache
+Warp Contracts implementation of the `SortKeyCache` using the LMDB database.
+Compatible only in node env.
 
-- [Installation](#installation)
-- [Running node - Docker](#running-node---docker)
-- [Endpoints](#endpoints)
-- [DEN Contract](#den-contract)
-- [Licensing](#licensing)
+### Usage
 
-### Installation
-
+```js
+const warp = WarpFactory
+  .custom(arweave, cacheOptions, 'mainnet', new LmdbCache({
+    ...cacheOptions,
+    dbLocation: `./cache/warp/lmdb-2/contracts`
+  }))
+  .useWarpGateway(defaultWarpGwOptions, defaultCacheOptions,)
+  .build();
+```
 1. `yarn install`
 2. `yarn build`
 
