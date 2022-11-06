@@ -8,7 +8,7 @@ import {
 } from 'warp-contracts';
 import { RootDatabase, open } from 'lmdb';
 
-export class LmdbCache<V = unknown> implements SortKeyCache<V> {
+export class LmdbCache<V = any> implements SortKeyCache<V> {
   private readonly logger = LoggerFactory.INST.create('LmdbCache');
 
   private readonly db: RootDatabase<V, string>;
