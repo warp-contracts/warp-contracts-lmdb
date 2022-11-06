@@ -17,9 +17,9 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     if (!cacheOptions.dbLocation) {
       throw new Error('LmdbCache cache configuration error - no db location specified');
     }
-    this.logger.info(`Using location ${cacheOptions.dbLocation}/state`);
+    this.logger.info(`Using location ${cacheOptions.dbLocation}`);
     this.db = open<V, string>({
-      path: `${cacheOptions.dbLocation}/state`,
+      path: `${cacheOptions.dbLocation}`,
       noSync: cacheOptions.inMemory
     });
   }
