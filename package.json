@@ -37,27 +37,14 @@
   ],
   "files": [
     "lib/",
-    "docs/",
     "LICENSE",
     "README.md"
   ],
-  "keywords": [
-    "smartweave",
-    "arweave",
-    "smart",
-    "contracts",
-    "wasm"
-  ],
-  "bugs": {
-    "url": "https://github.com/warp-contracts/warp/issues"
-  },
-  "homepage": "https://github.com/warp-contracts/warp#readme",
   "dependencies": {
     "lmdb": "^2.6.9",
     "warp-contracts": "1.2.14-lambda.6"
   },
   "devDependencies": {
-    "@types/cheerio": "^0.22.30",
     "@types/jest": "^28.1.6",
     "@types/node": "^18.0.6",
     "@typescript-eslint/eslint-plugin": "^5.30.7",
