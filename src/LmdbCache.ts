@@ -72,7 +72,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async put(stateCacheKey: CacheKey, value: V): Promise<void> {
-    await this.db.put(`${stateCacheKey.contractTxId}|${stateCacheKey.sortKey}`, value);
+    this.db.putSync(`${stateCacheKey.contractTxId}|${stateCacheKey.sortKey}`, value);
   }
 
   close(): Promise<void> {
