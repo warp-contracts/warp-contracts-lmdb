@@ -6,7 +6,7 @@ Compatible only in node env.
 
 ```js
 const warp = WarpFactory
-  .forMainnet({...defaultCacheOptions, inMemory: false})
+  .forMainnet()
   .useStateCache(new LmdbCache({
       ...defaultCacheOptions,
       dbLocation: `./cache/warp/state`
