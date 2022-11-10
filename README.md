@@ -6,10 +6,14 @@ Compatible only in node env.
 
 ```js
 const warp = WarpFactory
-  .custom(arweave, cacheOptions, 'mainnet', new LmdbCache({
-    ...cacheOptions,
-    dbLocation: `./cache/warp/lmdb-2/contracts`
-  }))
-  .useWarpGateway(defaultWarpGwOptions, defaultCacheOptions,)
-  .build();
+  .forMainnet({...defaultCacheOptions, inMemory: false})
+  .useStateCache(new LmdbCache({
+      ...defaultCacheOptions,
+      dbLocation: `./cache/warp/state`
+    }
+  ))
+  .useContractCache(new LmdbCache({
+    ...defaultCacheOptions,
+    dbLocation: `./cache/warp/contracts`
+  }));
 ```

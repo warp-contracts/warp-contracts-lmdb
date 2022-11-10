@@ -72,7 +72,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async put(stateCacheKey: CacheKey, value: V): Promise<void> {
-    this.db.putSync(`${stateCacheKey.contractTxId}|${stateCacheKey.sortKey}`, value);
+    await this.db.put(`${stateCacheKey.contractTxId}|${stateCacheKey.sortKey}`, value);
   }
 
   close(): Promise<void> {
@@ -88,7 +88,13 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async allContracts(): Promise<string[]> {
-    throw new Error('Not implemented yet');
+    const keys = this.db.getKeys();
+    const contracts = new Set<string>();
+    keys.forEach((k) => {
+      contracts.add(k.split('|')[0]);
+    });
+
+    return Array.from(contracts);
   }
 
   storage<S>(): S {
