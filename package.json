@@ -42,7 +42,7 @@
   ],
   "dependencies": {
     "lmdb": "^2.6.9",
-    "warp-contracts": "1.2.14-lambda.6"
+    "warp-contracts": "1.2.17-beta.0"
   },
   "devDependencies": {
     "@types/jest": "^28.1.6",

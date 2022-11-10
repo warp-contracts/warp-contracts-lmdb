@@ -90,4 +90,8 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   async allContracts(): Promise<string[]> {
     throw new Error('Not implemented yet');
   }
+
+  storage<S>(): S {
+    return this.db as S;
+  }
 }
