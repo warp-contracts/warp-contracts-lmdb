@@ -1,6 +1,6 @@
 {
   "name": "warp-contracts-lmdb",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Lmdb database for Warp Contracts SDK",
   "types": "./lib/types/index.d.ts",
   "main": "./lib/cjs/index.js",
@@ -41,8 +41,7 @@
     "README.md"
   ],
   "dependencies": {
-    "lmdb": "2.6.9",
-    "warp-contracts": "^1.2.17"
+    "lmdb": "2.7.0"
   },
   "devDependencies": {
     "@types/jest": "^28.1.6",
@@ -56,5 +55,8 @@
     "prettier": "^2.3.2",
     "rimraf": "^3.0.2",
     "typescript": "^4.7.4"
+  },
+  "peerDependencies": {
+    "warp-contracts": "^1.2.17"
   }
 }
