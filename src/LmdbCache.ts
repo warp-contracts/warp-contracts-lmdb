@@ -107,14 +107,13 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
       entriesStored = 1
     }
 
-    return this.db.transaction(() => {
+    const statsBefore = await this.db.transaction(() => {
       const statsBefore: any = this.db.getStats()
 
       // Keys are ordered, so one particular contract is referred to by consecutive keys (one or more)
       let entryContractId = ""
       let entriesCounter = 0
-
-      this.db.getKeys({ end: null, reverse: true })
+      this.db.getKeys({ end: null, reverse: true, snapshot: false })
         .filter(key => {
           const [contractId] = key.split("|", 1)
           if (contractId !== entryContractId) {
@@ -128,16 +127,21 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
         }).forEach(key => {
           // Remove keys over the specified limit
           this.db.removeSync(key)
-        });
+        })
 
-
-      const statsAfter: any = this.db.getStats()
-      return {
-        entriesBefore: statsBefore.entryCount,
-        sizeBefore: statsBefore.mapSize,
-        entriesAfter: statsAfter.entryCount,
-        sizeAfter: statsAfter.mapSize
-      } as PruneStats
+      return statsBefore
     })
+
+    // All previous writes have been committed and fully flushed/synced to disk/storage
+    await this.db.flushed
+
+    const statsAfter: any = this.db.getStats()
+
+    return {
+      entriesBefore: statsBefore.entryCount,
+      sizeBefore: statsBefore.mapSize,
+      entriesAfter: statsAfter.entryCount,
+      sizeAfter: statsAfter.mapSize
+    } as PruneStats
   }
 }
