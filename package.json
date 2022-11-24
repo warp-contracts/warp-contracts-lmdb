@@ -26,6 +26,7 @@
     "postversion": "git push && git push --tags",
     "yalc:publish": "yarn build && yalc publish --push",
     "test": "jest",
+    "test:real": "jest ./src/__tests__/lmdb-real-data",
     "test:unit": "jest ./src/__tests__/unit"
   },
   "license": "MIT",
