@@ -102,46 +102,48 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     return this.db as S;
   }
 
-  async prune(entriesStored: number = 1): Promise<PruneStats> {
+  async prune(entriesStored = 1): Promise<PruneStats> {
     if (!entriesStored || entriesStored <= 0) {
-      entriesStored = 1
+      entriesStored = 1;
     }
 
     const statsBefore = await this.db.transaction(() => {
-      const statsBefore: any = this.db.getStats()
+      const statsBefore: any = this.db.getStats();
 
       // Keys are ordered, so one particular contract is referred to by consecutive keys (one or more)
-      let entryContractId = ""
-      let entriesCounter = 0
-      this.db.getKeys({ end: null, reverse: true, snapshot: false })
-        .filter(key => {
-          const [contractId] = key.split("|", 1)
+      let entryContractId = '';
+      let entriesCounter = 0;
+      this.db
+        .getKeys({ end: null, reverse: true, snapshot: false })
+        .filter((key) => {
+          const [contractId] = key.split('|', 1);
           if (contractId !== entryContractId) {
             // New entry
-            entryContractId = contractId
-            entriesCounter = 0
+            entryContractId = contractId;
+            entriesCounter = 0;
           }
           // Subsequent entry
-          entriesCounter += 1
-          return entriesCounter > entriesStored
-        }).forEach(key => {
-          // Remove keys over the specified limit
-          this.db.removeSync(key)
+          entriesCounter += 1;
+          return entriesCounter > entriesStored;
         })
+        .forEach((key) => {
+          // Remove keys over the specified limit
+          this.db.removeSync(key);
+        });
 
-      return statsBefore
-    })
+      return statsBefore;
+    });
 
     // All previous writes have been committed and fully flushed/synced to disk/storage
-    await this.db.flushed
+    await this.db.flushed;
 
-    const statsAfter: any = this.db.getStats()
+    const statsAfter: any = this.db.getStats();
 
     return {
       entriesBefore: statsBefore.entryCount,
       sizeBefore: statsBefore.mapSize,
       entriesAfter: statsAfter.entryCount,
       sizeAfter: statsAfter.mapSize
-    } as PruneStats
+    };
   }
 }
