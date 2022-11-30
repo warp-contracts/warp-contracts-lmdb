@@ -2,6 +2,7 @@ import {
   CacheKey,
   CacheOptions,
   lastPossibleKey,
+  genesisSortKey,
   LoggerFactory,
   SortKeyCache,
   SortKeyCacheResult,
@@ -74,6 +75,15 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
 
   async put(stateCacheKey: CacheKey, value: V): Promise<void> {
     await this.db.put(`${stateCacheKey.contractTxId}|${stateCacheKey.sortKey}`, value);
+  }
+
+  async delete(contractTxId: string): Promise<void> {
+    await this.db.transaction(() => {
+      this.db.getKeys({ start: `${contractTxId}|${genesisSortKey}`, end: `${contractTxId}|${lastPossibleKey}`})
+        .forEach(key => {
+          this.db.removeSync(key)
+        })
+    })
   }
 
   close(): Promise<void> {

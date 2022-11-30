@@ -96,4 +96,49 @@ describe('Lmdb cache prune', () => {
       }
     }
   });
+
+  it('deletes first contract from cache', async () => {
+    const contracts = 7
+    const entriesPerContract = 12
+    const sut = await cache(contracts, entriesPerContract)
+
+    await sut.delete(getContractId(0))
+
+    // Removed elements
+    for (let j = 0; j < entriesPerContract; j++) {
+      expect(await sut.get(getContractId(0), getSortKey(j))).toBeFalsy()
+    }
+
+    // Remaining elements
+    for (let i = 1; i < contracts; i++) {
+      for (let j = 0; j < entriesPerContract; j++) {
+        expect(await sut.get(getContractId(i), getSortKey(j))).toBeTruthy()
+      }
+    }
+
+    expect((await sut.allContracts()).length).toBe(contracts - 1)
+  });
+
+  it('deletes contract from the middle of the cache', async () => {
+    const contracts = 7
+    const entriesPerContract = 12
+    const removedContractIdx = 3
+    const sut = await cache(contracts, entriesPerContract)
+
+    await sut.delete(getContractId(removedContractIdx))
+
+    // Remaining elements
+    for (let i = 0; i < contracts; i++) {
+      for (let j = 0; j < entriesPerContract; j++) {
+        const data = await sut.get(getContractId(i), getSortKey(j))
+        if (i === removedContractIdx) {
+          expect(data).toBeFalsy()
+        } else {
+          expect(data).toBeTruthy()
+        }
+      }
+    }
+
+    expect((await sut.allContracts()).length).toBe(contracts - 1)
+  });
 });
