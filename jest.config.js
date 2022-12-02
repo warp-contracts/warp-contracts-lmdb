@@ -8,6 +8,7 @@ module.exports = {
     "/.yalc/",
     "/data/",
     "/_helpers",
+    "src/__tests__/utils.ts",
   ],
 
   testEnvironment: 'node',
