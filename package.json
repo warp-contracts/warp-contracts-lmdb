@@ -27,6 +27,7 @@
     "yalc:publish": "yarn build && yalc publish --push",
     "test": "jest",
     "test:real": "jest ./src/__tests__/lmdb-real-data",
+    "test:load": "jest ./src/__tests__/lmdb-cache-load",
     "test:unit": "jest ./src/__tests__/unit"
   },
   "license": "MIT",
@@ -52,6 +53,7 @@
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^3.4.1",
+    "fast-folder-size": "^1.7.1",
     "jest": "^29.3.1",
     "prettier": "^2.3.2",
     "rimraf": "^3.0.2",
