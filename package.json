@@ -43,7 +43,7 @@
     "README.md"
   ],
   "dependencies": {
-    "lmdb": "2.7.0"
+    "lmdb": "2.7.2"
   },
   "devDependencies": {
     "@types/jest": "^28.1.6",
