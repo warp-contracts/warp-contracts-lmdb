@@ -1,6 +1,6 @@
 {
   "name": "warp-contracts-lmdb",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "Lmdb database for Warp Contracts SDK",
   "types": "./lib/types/index.d.ts",
   "main": "./lib/cjs/index.js",
