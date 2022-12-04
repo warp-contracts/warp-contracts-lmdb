@@ -5,7 +5,6 @@ Compatible only with node env.
 LMDB is a much better solution (than LevelDB) in terms of read/write access times and concurrency.  
 Comparison by [Mozilla](https://mozilla.github.io/firefox-browser-architecture/text/0017-lmdb-vs-leveldb.html).
 
-**NOTE**: Do not upgrade to lmdb-js ver. `2.7.0` until this [issue](https://github.com/kriszyp/lmdb-js/issues/203#issue-1457114937) is solved!
 
 ### Installation
 Note: lmdb cache is compatible only with node.js env.
