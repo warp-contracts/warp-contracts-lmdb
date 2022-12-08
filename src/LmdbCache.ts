@@ -8,17 +8,26 @@ import {
   SortKeyCacheResult,
   PruneStats
 } from 'warp-contracts';
-import { RootDatabase, open } from 'lmdb';
+import { RootDatabase, open, RangeOptions } from 'lmdb';
+import { LmdbOptions } from './LmdbOptions';
 
 export class LmdbCache<V = any> implements SortKeyCache<V> {
   private readonly logger = LoggerFactory.INST.create('LmdbCache');
 
   private readonly db: RootDatabase<V, string>;
 
-  constructor(cacheOptions: CacheOptions) {
+  constructor(cacheOptions: CacheOptions, private readonly lmdbOptions?: LmdbOptions) {
     if (!cacheOptions.dbLocation) {
       throw new Error('LmdbCache cache configuration error - no db location specified');
     }
+
+    if (!lmdbOptions) {
+      this.lmdbOptions = {
+        maxEntriesPerContract: 10,
+        minEntriesPerContract: 10
+      };
+    }
+
     this.logger.info(`Using location ${cacheOptions.dbLocation}`);
     this.db = open<V, string>({
       path: `${cacheOptions.dbLocation}`,
@@ -73,8 +82,37 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     }
   }
 
-  async put(stateCacheKey: CacheKey, value: V): Promise<void> {
-    await this.db.put(`${stateCacheKey.contractTxId}|${stateCacheKey.sortKey}`, value);
+  async put(cacheKey: CacheKey, value: V): Promise<void> {
+    await this.db.transaction(() => {
+      this.db.putSync(`${cacheKey.contractTxId}|${cacheKey.sortKey}`, value);
+
+      // Get number of elements that is already in cache.
+      // +1 to account for the element we just put and will be inserted with this transaction
+      const numInCache =
+        1 +
+        this.db.getKeysCount({
+          start: `${cacheKey.contractTxId}|${genesisSortKey}`,
+          end: `${cacheKey.contractTxId}|${cacheKey.sortKey}`
+        });
+
+      // Make sure there isn't too many entries for one contract
+      if (numInCache <= this.lmdbOptions.maxEntriesPerContract) {
+        // We're below the limit, finish
+        return;
+      }
+
+      // Remove oldest entries, so after the final put there's minEntriesPerContract present
+      const numToRemove = numInCache - this.lmdbOptions.minEntriesPerContract;
+      // Remove entries one by one, it's in a transaction so changes will be applied all at once
+      this.db
+        .getKeys({
+          start: `${cacheKey.contractTxId}|${genesisSortKey}`,
+          limit: numToRemove
+        })
+        .forEach((key) => {
+          this.db.removeSync(key);
+        });
+    });
   }
 
   async delete(contractTxId: string): Promise<void> {

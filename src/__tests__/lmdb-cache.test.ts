@@ -1,22 +1,24 @@
 import { LmdbCache } from '../LmdbCache';
 import { defaultCacheOptions } from 'warp-contracts';
 import * as fs from 'fs';
+import { cache, getContractId, getSortKey } from './utils';
+import { RootDatabase } from 'lmdb';
 
 describe('Lmdb cache', () => {
-  beforeAll(() => {
+  beforeEach(() => {
     if (fs.existsSync('./cache')) {
       fs.rmSync('./cache', { recursive: true });
     }
   });
 
-  afterAll(() => {
+  afterEach(() => {
     if (fs.existsSync('./cache')) {
       fs.rmSync('./cache', { recursive: true });
     }
   });
 
   it('should return proper data', async () => {
-    const sut = new LmdbCache<any>({ ...defaultCacheOptions, inMemory: true });
+    const sut = await cache(0, 100);
 
     await sut.put(
       {
@@ -165,5 +167,69 @@ describe('Lmdb cache', () => {
         '000000860512,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b765'
       )
     ).toEqual(null);
+  });
+
+  it('respects limits for max and min interactions per contract', async () => {
+    const max = 10;
+    const min = 2;
+    const sut = await cache(0, 0, {
+      minEntriesPerContract: min,
+      maxEntriesPerContract: max
+    });
+
+    for (let j = 0; j < max; j++) {
+      await sut.put(
+        {
+          contractTxId: getContractId(0),
+          sortKey: getSortKey(j)
+        },
+        { result: `contract${0}:${j}` }
+      );
+    }
+
+    // All entries are available
+    for (let j = 0; j < max; ++j) {
+      const result = await sut.get(getContractId(0), getSortKey(j));
+      expect(result).toBeTruthy();
+      expect(result?.cachedValue.result).toBe(`contract${0}:${j}`);
+    }
+
+    // This put causes cleanup
+    await sut.put(
+      {
+        contractTxId: getContractId(0),
+        sortKey: getSortKey(max)
+      },
+      { result: `contract${0}:${max}` }
+    );
+
+    for (let i = 0; i <= max; i++) {
+      const result = await sut.get(getContractId(0), getSortKey(i));
+      if (i <= max - min) {
+        expect(result).toBeFalsy();
+      } else {
+        expect(result).toBeTruthy();
+        expect(result?.cachedValue.result).toBe(`contract${0}:${i}`);
+      }
+    }
+
+    // This just adds another entry, no cleanup
+    await sut.put(
+      {
+        contractTxId: getContractId(0),
+        sortKey: getSortKey(max + 1)
+      },
+      { result: `contract${0}:${max + 1}` }
+    );
+
+    for (let i = 0; i <= max + 1; i++) {
+      const result = await sut.get(getContractId(0), getSortKey(i));
+      if (i <= max - min) {
+        expect(result).toBeFalsy();
+      } else {
+        expect(result).toBeTruthy();
+        expect(result?.cachedValue.result).toBe(`contract${0}:${i}`);
+      }
+    }
   });
 });

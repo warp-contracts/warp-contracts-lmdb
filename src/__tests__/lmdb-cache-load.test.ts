@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { cache, getContractId, getSortKey } from './utils';
+import { cache } from './utils';
 import { promisify } from 'util';
 import fastFolderSize from 'fast-folder-size';
 
@@ -21,20 +21,25 @@ describe.skip('Lmdb cache load tests', () => {
     fs.rmSync('./cache', { force: true, recursive: true });
     fs.rmSync('./cachesize.csv', { force: true });
     fs.appendFileSync('./cachesize.csv', `Cache Size,MB,CreationMs,AccessMs,DeletionMs\n`, { flag: 'a' });
+    fs.appendFileSync('./threshold.csv', `Min,Max,Delta,CacheSize,SizeMB,CreationMs\n`, { flag: 'a' });
   });
 
   afterEach(() => {
     fs.rmSync('./cache', { force: true, recursive: true });
   });
 
-  it('time to fill cache', async () => {
+  it.skip('time to fill cache', async () => {
     for (let i = cacheSizes.length - 1; i >= 0; --i) {
       console.log('Testing cache size: ', i, cacheSizes[i]);
       fs.rmSync('./cache', { force: true, recursive: true });
 
       // Create the cache
       let start = new Date().getTime();
-      const sut = await cache(cacheSizes[i], 1);
+      const sut = await cache(cacheSizes[i], 100, {
+        maxEntriesPerContract: 15,
+        minEntriesPerContract: 2
+      });
+
       const creation = new Date().getTime() - start;
 
       const contracts = await sut.allContracts();
@@ -54,6 +59,34 @@ describe.skip('Lmdb cache load tests', () => {
       const deletion = new Date().getTime() - start;
 
       await saveCacheSize(cacheSizes[i], creation, access, deletion);
+    }
+  });
+
+  it('num entries per contract impact', async () => {
+    const cacheSize = 1;
+    const max = 10;
+    for (let cacheSize = 1; cacheSize <= 10000; cacheSize += 500) {
+      for (let min = 1; min <= max; min += 2) {
+        console.log('Testing thresholds: ', min, cacheSize);
+        fs.rmSync('./cache', { force: true, recursive: true });
+
+        // Create the cache
+        const start = new Date().getTime();
+        const sut = await cache(cacheSize, max * 3, {
+          maxEntriesPerContract: max,
+          minEntriesPerContract: min
+        });
+
+        const creation = new Date().getTime() - start;
+
+        const fastFolderSizeAsync = promisify(fastFolderSize);
+        const size = (await fastFolderSizeAsync('./cache')) || 0;
+        fs.appendFileSync(
+          `./threshold.csv`,
+          `${min},${max},${max - min},${cacheSize},${Math.round((size * 10) / 1024 / 1024) / 10},${creation}\n`,
+          { flag: 'a' }
+        );
+      }
     }
   });
 });
