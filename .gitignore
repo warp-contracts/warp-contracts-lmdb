@@ -29,3 +29,6 @@ bundles/
 
 ./tools/src
 ./tools/dst
+
+# Benchmarks
+*.csv
