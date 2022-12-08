@@ -232,4 +232,17 @@ describe('Lmdb cache', () => {
       }
     }
   });
+
+  it('properly encodes entries', async () => {
+    const sut = await cache(0, 0, {
+      minEntriesPerContract: 100,
+      maxEntriesPerContract: 1000
+    });
+
+    const data = fs.readFileSync('./src/__tests__/problematic-strings.txt', 'utf-8');
+    await sut.put({ contractTxId: getContractId(0), sortKey: getSortKey(0) }, data);
+
+    const tmp = await sut.getLast(getContractId(0));
+    expect(tmp?.cachedValue).toBe(data);
+  });
 });
