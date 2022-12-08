@@ -48,7 +48,11 @@ async function main() {
   input.transactionSync(() => {
     input.getRange({ snapshot: false })
       .forEach(({ key, value }) => {
-        output.putSync(key, value)
+        try {
+          output.putSync(key, value)
+        } catch (err) {
+          console.log("Failed to insert value", key, "exception: ", err)
+        }
         bar.increment()
       });
   })
