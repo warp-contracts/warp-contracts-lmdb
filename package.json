@@ -46,10 +46,13 @@
     "lmdb": "2.7.3"
   },
   "devDependencies": {
+    "@types/command-line-args": "^5.2.0",
     "@types/jest": "^28.1.6",
     "@types/node": "^18.0.6",
     "@typescript-eslint/eslint-plugin": "^5.30.7",
     "@typescript-eslint/parser": "^5.30.7",
+    "cli-progress": "^3.11.2",
+    "command-line-args": "^5.2.1",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^3.4.1",
