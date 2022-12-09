@@ -2,9 +2,12 @@
 import { LmdbCache } from '../src/LmdbCache'
 import { RootDatabase } from 'lmdb';
 import { defaultCacheOptions, CacheKey } from 'warp-contracts';
+import {
+  LoggerFactory,
+} from 'warp-contracts';
+import * as fs from 'fs';
 
 const commandLineArgs = require('command-line-args')
-const cliProgress = require('cli-progress');
 
 process.on('uncaughtException', (error: any) => {
   console.error(`Uncaught exception: ${error}`);
@@ -18,12 +21,13 @@ process.on('unhandledRejection', (error: any) => {
   if (error.stack)
     console.error(error.stack);
   process.exit(1);
-
 });
 
 const optionDefinitions = [
   { name: 'input', type: String, alias: 'i' },
   { name: 'output', type: String, alias: 'o' },
+  { name: 'startChunk', type: Number, alias: 's' },
+  { name: 'numChunks', type: Number, alias: 'c' },
 ]
 
 async function main() {
@@ -33,27 +37,60 @@ async function main() {
     return
   }
 
-  console.log('Rewriting LMDB cache to another LMDB cache');
+  LoggerFactory.INST.logLevel('error');
 
   const input = new LmdbCache<any>({ ...defaultCacheOptions, dbLocation: args.input })
     .storage<RootDatabase<any, string>>();
+
   const output = new LmdbCache<any>({ ...defaultCacheOptions, dbLocation: args.output })
     .storage<RootDatabase<any, string>>();
 
-  const bar = new cliProgress.SingleBar({
-    etaBuffer: 1000,
-  }, cliProgress.Presets.shades_classic);
-  bar.start(input.getKeysCount(), 0);
+  const numKeys = input.getKeysCount()
+  const chunkSize = 1000
 
-  input.transactionSync(() => {
-    input.getRange({ snapshot: false })
-      .forEach(({ key, value }) => {
-        output.putSync(key, value)
-        bar.increment()
-      });
-  })
+  const endChunk = Math.min(Math.ceil(numKeys / chunkSize), args.startChunk + args.numChunks)
 
-  bar.stop()
+  let counter = 0
+  let i
+  for (i = args.startChunk; i < endChunk; i++) {
+    try {
+      output.transactionSync(() => {
+        // input.getKeys({ snapshot: false, limit: chunkSize, offset: i * chunkSize })
+        //   .forEach((key) => {
+        //     console.log(key)
+        //     let value = input.getBinary(key)
+        //     fs.writeFileSync("./problem.bin", value)
+        //     console.log(value)
+        //   });
+        input.getRange({ snapshot: false, limit: chunkSize, offset: i * chunkSize })
+          .forEach(({ key, value }) => {
+            try {
+              output.putSync(key, value)
+            } catch (err) {
+              console.error("Failed to put", key, "exception:", err)
+            }
+            counter += 1
+          });
+      })
+
+      await output.flushed
+
+    } catch (err) {
+      console.error("Failed to chunk, exception:", i, err)
+      process.exit(1)
+    }
+  }
+  i -= 1
+  console.log("Inserted elements ", i * chunkSize + counter, "of", numKeys, "(", Math.floor((100 * i * chunkSize + counter) / numKeys), "%)")
+  if (counter !== 0) {
+    // Tell the running script there's still data
+    process.exit(12)
+  }
+
+  await input.close()
+  await output.close()
+
+  process.exit(0)
 }
 
 main().catch((e) => console.error(e));
