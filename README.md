@@ -18,7 +18,8 @@ Requires `warp-contracts` SDK ver. min. 1.2.17
 ### Usage
 
 ```js
-const {LmdbCache} = require('warp-contracts-lmdb');
+const {defaultCacheOptions, WarpFactory} = require("warp-contracts");
+const {LmdbCache} = require("warp-contracts-lmdb");
 
 const warp = WarpFactory
   .forMainnet()
