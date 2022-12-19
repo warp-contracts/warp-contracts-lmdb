@@ -64,7 +64,7 @@ parseOptions() {
 
 run() {
     export NODE_OPTIONS="-r ts-node/register --no-warnings --max-old-space-size=4000"
-    for i in $(seq 0 $NUM_CHUNKS_IN_BATCH 100); do
+    for i in $(seq 0 $NUM_CHUNKS_IN_BATCH 100000); do
         node ./rewrite.ts -i $INPUT -o $OUTPUT -s $i -c $NUM_CHUNKS_IN_BATCH
         result=$?
         if [ $result = 12 ]; then
