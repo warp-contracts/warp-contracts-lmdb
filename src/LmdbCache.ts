@@ -84,7 +84,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
 
   async put(cacheKey: CacheKey, value: V): Promise<void> {
     await this.db.transaction(() => {
-      this.db.putSync(`${cacheKey.contractTxId}|${cacheKey.sortKey}`, value);
+      this.db.put(`${cacheKey.contractTxId}|${cacheKey.sortKey}`, value);
 
       // Get number of elements that is already in cache.
       // +1 to account for the element we just put and will be inserted with this transaction
@@ -110,7 +110,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
           limit: numToRemove
         })
         .forEach((key) => {
-          this.db.removeSync(key);
+          this.db.remove(key);
         });
     });
   }
@@ -120,7 +120,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
       this.db
         .getKeys({ start: `${contractTxId}|${genesisSortKey}`, end: `${contractTxId}|${lastPossibleKey}` })
         .forEach((key) => {
-          this.db.removeSync(key);
+          this.db.remove(key);
         });
     });
   }
