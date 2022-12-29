@@ -14,6 +14,13 @@ yarn add warp-contracts-lmdb
 ```
 
 Requires `warp-contracts` SDK ver. min. 1.2.17
+### Custom options
+LmdbCache constructor accepts a second param with custom configuration.
+
+| Option                | Required   | Description                                                                                                                           |
+|-----------------------|------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| maxEntriesPerContract |   false    | Maximum number of interactions stored per contract id - above this threshold adding another entry triggers removing old interactions. |
+| minEntriesPerContract |   false    | Minimum number of interactions stored per contract id. Value used when removing old iteractions.                                      |
 
 ### Usage
 
@@ -26,6 +33,9 @@ const warp = WarpFactory
   .useStateCache(new LmdbCache({
       ...defaultCacheOptions,
       dbLocation: `./cache/warp/state`
+    }, {
+      maxEntriesPerContract: 100, 
+      minEntriesPerContract: 10
     }
   ))
   .useContractCache(new LmdbCache({
