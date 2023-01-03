@@ -38,8 +38,15 @@ const warp = WarpFactory
       minEntriesPerContract: 10
     }
   ))
-  .useContractCache(new LmdbCache({
+  .useContractCache(
+    // Contract cache
+    new LmdbCache({
     ...defaultCacheOptions,
     dbLocation: `./cache/warp/contracts`
+    }), 
+    // Source cache
+    new LmdbCache({
+    ...defaultCacheOptions,
+    dbLocation: `./cache/warp/src`
   }));
 ```
