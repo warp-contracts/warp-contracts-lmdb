@@ -83,7 +83,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async put(cacheKey: CacheKey, value: V): Promise<void> {
-    await this.db.transaction(() => {
+    return this.db.childTransaction(() => {
       this.db.put(`${cacheKey.contractTxId}|${cacheKey.sortKey}`, value);
 
       // Get number of elements that is already in cache.
@@ -116,7 +116,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async delete(contractTxId: string): Promise<void> {
-    await this.db.transaction(() => {
+    return this.db.childTransaction(() => {
       this.db
         .getKeys({ start: `${contractTxId}|${genesisSortKey}`, end: `${contractTxId}|${lastPossibleKey}` })
         .forEach((key) => {
@@ -156,7 +156,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
       entriesStored = 1;
     }
 
-    const statsBefore = await this.db.transaction(() => {
+    const statsBefore = await this.db.childTransaction(() => {
       const statsBefore: any = this.db.getStats();
 
       // Keys are ordered, so one particular contract is referred to by consecutive keys (one or more)
