@@ -85,7 +85,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   async put(cacheKey: CacheKey, value: V): Promise<void> {
     this.logger.info(`Putting data contract_id=${cacheKey.contractTxId}`);
 
-    await this.db.transaction(() => {
+    await this.db.childTransaction(() => {
       this.logger.info(`Inside transaction contract_id=${cacheKey.contractTxId}`);
 
       this.db.put(`${cacheKey.contractTxId}|${cacheKey.sortKey}`, value);
@@ -129,7 +129,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async delete(contractTxId: string): Promise<void> {
-    await this.db.transaction(() => {
+    await this.db.childTransaction(() => {
       this.db
         .getKeys({ start: `${contractTxId}|${genesisSortKey}`, end: `${contractTxId}|${lastPossibleKey}` })
         .forEach((key) => {
