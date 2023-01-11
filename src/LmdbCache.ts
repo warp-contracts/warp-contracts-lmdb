@@ -83,8 +83,14 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async put(cacheKey: CacheKey, value: V): Promise<void> {
-    await this.db.childTransaction(() => {
+    this.logger.info(`Putting data contract_id=${cacheKey.contractTxId}`);
+
+    await this.db.transaction(() => {
+      this.logger.info(`Inside transaction contract_id=${cacheKey.contractTxId}`);
+
       this.db.put(`${cacheKey.contractTxId}|${cacheKey.sortKey}`, value);
+
+      this.logger.info(`After put contract_id=${cacheKey.contractTxId}`);
 
       // Get number of elements that is already in cache.
       // +1 to account for the element we just put and will be inserted with this transaction
@@ -98,6 +104,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
       // Make sure there isn't too many entries for one contract
       if (numInCache <= this.lmdbOptions.maxEntriesPerContract) {
         // We're below the limit, finish
+        this.logger.info(`Entries below limit contract_id=${cacheKey.contractTxId}`);
         return;
       }
 
@@ -110,13 +117,19 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
           limit: numToRemove
         })
         .forEach((key) => {
+          this.logger.info(`Removing key=${key} contract_id=${cacheKey.contractTxId}`);
           this.db.remove(key);
         });
+
+      this.logger.info(`After removing contract_id=${cacheKey.contractTxId}`);
+
     });
+    this.logger.info(`After transaction contract_id=${cacheKey.contractTxId}`);
+
   }
 
   async delete(contractTxId: string): Promise<void> {
-    await this.db.childTransaction(() => {
+    await this.db.transaction(() => {
       this.db
         .getKeys({ start: `${contractTxId}|${genesisSortKey}`, end: `${contractTxId}|${lastPossibleKey}` })
         .forEach((key) => {
