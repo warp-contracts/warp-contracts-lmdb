@@ -1,6 +1,6 @@
-import { defaultCacheOptions, PruneStats } from 'warp-contracts';
 import * as fs from 'fs';
 import { cache, getContractId, getSortKey } from './utils';
+import { CacheKey } from 'warp-contracts';
 
 describe('Lmdb cache prune', () => {
   beforeEach(() => {
@@ -65,12 +65,12 @@ describe('Lmdb cache prune', () => {
     for (let i = 0; i < contracts; i++) {
       // Check newest elements are present
       for (let j = 0; j < toLeave; j++) {
-        expect(await sut.get(getContractId(i), getSortKey(entriesPerContract - j - 1))).toBeTruthy();
+        expect(await sut.get(new CacheKey(getContractId(i), getSortKey(entriesPerContract - j - 1)))).toBeTruthy();
       }
 
       // Check old elements are removed
       for (let j = toLeave; j < entriesPerContract; j++) {
-        expect(await sut.get(getContractId(i), getSortKey(entriesPerContract - j - 1))).toBeFalsy();
+        expect(await sut.get(new CacheKey(getContractId(i), getSortKey(entriesPerContract - j - 1)))).toBeFalsy();
       }
     }
   });
@@ -84,17 +84,17 @@ describe('Lmdb cache prune', () => {
 
     // Removed elements
     for (let j = 0; j < entriesPerContract; j++) {
-      expect(await sut.get(getContractId(0), getSortKey(j))).toBeFalsy();
+      expect(await sut.get(new CacheKey(getContractId(0), getSortKey(j)))).toBeFalsy();
     }
 
     // Remaining elements
     for (let i = 1; i < contracts; i++) {
       for (let j = 0; j < entriesPerContract; j++) {
-        expect(await sut.get(getContractId(i), getSortKey(j))).toBeTruthy();
+        expect(await sut.get(new CacheKey(getContractId(i), getSortKey(j)))).toBeTruthy();
       }
     }
 
-    expect((await sut.allContracts()).length).toBe(contracts - 1);
+    expect((await sut.keys()).length).toBe(contracts - 1);
   });
 
   it('deletes contract from the middle of the cache', async () => {
@@ -108,7 +108,7 @@ describe('Lmdb cache prune', () => {
     // Remaining elements
     for (let i = 0; i < contracts; i++) {
       for (let j = 0; j < entriesPerContract; j++) {
-        const data = await sut.get(getContractId(i), getSortKey(j));
+        const data = await sut.get(new CacheKey(getContractId(i), getSortKey(j)));
         if (i === removedContractIdx) {
           expect(data).toBeFalsy();
         } else {
@@ -117,6 +117,6 @@ describe('Lmdb cache prune', () => {
       }
     }
 
-    expect((await sut.allContracts()).length).toBe(contracts - 1);
+    expect((await sut.keys()).length).toBe(contracts - 1);
   });
 });

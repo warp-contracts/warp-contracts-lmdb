@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/warp-sdk-lmdb.iml" filepath="$PROJECT_DIR$/.idea/warp-sdk-lmdb.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/warp-contracts-lmdb.iml" filepath="$PROJECT_DIR$/.idea/warp-contracts-lmdb.iml" />
     </modules>
   </component>
 </project>

@@ -1,11 +1,22 @@
 import { LmdbCache } from '../LmdbCache';
 import { LmdbOptions } from '../LmdbOptions';
-import { defaultCacheOptions } from 'warp-contracts';
+import { defaultCacheOptions, DelBatch, PutBatch } from 'warp-contracts';
 
 export const getContractId = (i: number) => `contract${i}`.padStart(43, '0');
 
 export const getSortKey = (j: number) =>
   `${j.toString().padStart(12, '0')},1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767`;
+
+export const putBatch = <V>(putKey: string, putSortKey: string, resultVal: V): PutBatch<V> => ({
+  type: 'put',
+  key: { key: putKey, sortKey: putSortKey },
+  value: resultVal
+});
+
+export const delBatch = (delKey: string): DelBatch => ({
+  type: 'del',
+  key: delKey
+});
 
 export const cache = async function (
   numContracts: number,
@@ -24,7 +35,7 @@ export const cache = async function (
     for (let j = 0; j < numRepeatingEntries; j++) {
       await sut.put(
         {
-          contractTxId: getContractId(i),
+          key: getContractId(i),
           sortKey: getSortKey(j)
         },
         { result: `contract${i}:${j}` }
