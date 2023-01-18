@@ -42,7 +42,7 @@ describe.skip('Lmdb cache load tests', () => {
 
       const creation = new Date().getTime() - start;
 
-      const contracts = await sut.allContracts();
+      const contracts = await sut.keys();
 
       // Access every element
       start = new Date().getTime();

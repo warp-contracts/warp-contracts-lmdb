@@ -1,22 +1,22 @@
 import {
   CacheKey,
   CacheOptions,
-  lastPossibleKey,
   genesisSortKey,
   LoggerFactory,
   SortKeyCache,
   SortKeyCacheResult,
-  PruneStats
+  PruneStats,
+  BatchDBOp, lastPossibleSortKey
 } from 'warp-contracts';
-import { RootDatabase, open, RangeOptions } from 'lmdb';
+import { RootDatabase, open } from 'lmdb';
 import { LmdbOptions } from './LmdbOptions';
 
 export class LmdbCache<V = any> implements SortKeyCache<V> {
   private readonly logger = LoggerFactory.INST.create('LmdbCache');
 
-  private readonly db: RootDatabase<V, string>;
+  private db: RootDatabase<V, string>;
 
-  constructor(cacheOptions: CacheOptions, private readonly lmdbOptions?: LmdbOptions) {
+  constructor(private readonly cacheOptions: CacheOptions, private readonly lmdbOptions?: LmdbOptions) {
     if (!cacheOptions.dbLocation) {
       throw new Error('LmdbCache cache configuration error - no db location specified');
     }
@@ -35,12 +35,22 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     });
   }
 
-  async get(contractTxId: string, sortKey: string, returnDeepCopy?: boolean): Promise<SortKeyCacheResult<V> | null> {
-    const result = this.db.get(`${contractTxId}|${sortKey}`) || null;
+  async batch(opStack: BatchDBOp<V>[]) {
+    for (const op of opStack) {
+      if (op.type === 'put') {
+        await this.put(op.key, op.value);
+      } else if (op.type === 'del') {
+        await this.delete(op.key);
+      }
+    }
+  }
+
+  async get(cacheKey: CacheKey, returnDeepCopy?: boolean): Promise<SortKeyCacheResult<V> | null> {
+    const result = this.db.get(`${cacheKey.key}|${cacheKey.sortKey}`) || null;
 
     if (result) {
       return {
-        sortKey: sortKey,
+        sortKey: cacheKey.sortKey,
         cachedValue: result
       };
     } else {
@@ -48,10 +58,10 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     }
   }
 
-  async getLast(contractTxId: string): Promise<SortKeyCacheResult<V> | null> {
-    const result = this.db.getRange({ start: `${contractTxId}|${lastPossibleKey}`, reverse: true, limit: 1 }).asArray;
+  async getLast(key: string): Promise<SortKeyCacheResult<V> | null> {
+    const result = this.db.getRange({ start: `${key}|${lastPossibleSortKey}`, reverse: true, limit: 1 }).asArray;
     if (result.length) {
-      if (!result[0].key.startsWith(contractTxId)) {
+      if (!result[0].key.startsWith(key)) {
         return null;
       }
       return {
@@ -63,14 +73,14 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     }
   }
 
-  async getLessOrEqual(contractTxId: string, sortKey: string): Promise<SortKeyCacheResult<V> | null> {
+  async getLessOrEqual(key: string, sortKey: string): Promise<SortKeyCacheResult<V> | null> {
     const result = this.db.getRange({
-      start: `${contractTxId}|${sortKey}`,
+      start: `${key}|${sortKey}`,
       reverse: true,
       limit: 1
     }).asArray;
     if (result.length) {
-      if (!result[0].key.startsWith(contractTxId)) {
+      if (!result[0].key.startsWith(key)) {
         return null;
       }
       return {
@@ -84,15 +94,15 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
 
   async put(cacheKey: CacheKey, value: V): Promise<void> {
     return this.db.childTransaction(() => {
-      this.db.put(`${cacheKey.contractTxId}|${cacheKey.sortKey}`, value);
+      this.db.put(`${cacheKey.key}|${cacheKey.sortKey}`, value);
 
       // Get number of elements that is already in cache.
       // +1 to account for the element we just put and will be inserted with this transaction
       const numInCache =
         1 +
         this.db.getKeysCount({
-          start: `${cacheKey.contractTxId}|${genesisSortKey}`,
-          end: `${cacheKey.contractTxId}|${cacheKey.sortKey}`
+          start: `${cacheKey.key}|${genesisSortKey}`,
+          end: `${cacheKey.key}|${cacheKey.sortKey}`
         });
 
       // Make sure there isn't too many entries for one contract
@@ -101,12 +111,12 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
         return;
       }
 
-      // Remove oldest entries, so after the final put there's minEntriesPerContract present
+      // Remove the oldest entries, so after the final put there's minEntriesPerContract present
       const numToRemove = numInCache - this.lmdbOptions.minEntriesPerContract;
       // Remove entries one by one, it's in a transaction so changes will be applied all at once
       this.db
         .getKeys({
-          start: `${cacheKey.contractTxId}|${genesisSortKey}`,
+          start: `${cacheKey.key}|${genesisSortKey}`,
           limit: numToRemove
         })
         .forEach((key) => {
@@ -115,18 +125,28 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     });
   }
 
-  async delete(contractTxId: string): Promise<void> {
+  async delete(key: string): Promise<void> {
     return this.db.childTransaction(() => {
-      this.db
-        .getKeys({ start: `${contractTxId}|${genesisSortKey}`, end: `${contractTxId}|${lastPossibleKey}` })
-        .forEach((key) => {
-          this.db.remove(key);
-        });
+      this.db.getKeys({ start: `${key}|${genesisSortKey}`, end: `${key}|${lastPossibleKey}` }).forEach((key) => {
+        this.db.remove(key);
+      });
     });
   }
 
+  open(): Promise<void> {
+    if (this.db == null) {
+      this.db = open<V, string>({
+        path: `${this.cacheOptions.dbLocation}`,
+        noSync: this.cacheOptions.inMemory
+      });
+    }
+    return;
+  }
+
   close(): Promise<void> {
-    return this.db.close();
+    this.db.close();
+    this.db = null;
+    return;
   }
 
   async dump(): Promise<any> {
@@ -137,7 +157,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     throw new Error('Not implemented yet');
   }
 
-  async allContracts(): Promise<string[]> {
+  async keys(): Promise<string[]> {
     const keys = this.db.getKeys();
     const contracts = new Set<string>();
     keys.forEach((k) => {

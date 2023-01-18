@@ -1,8 +1,6 @@
-import { LmdbCache } from '../LmdbCache';
-import { defaultCacheOptions } from 'warp-contracts';
 import * as fs from 'fs';
 import { cache, getContractId, getSortKey } from './utils';
-import { RootDatabase } from 'lmdb';
+import { CacheKey } from 'warp-contracts';
 
 describe('Lmdb cache', () => {
   beforeEach(() => {
@@ -22,35 +20,35 @@ describe('Lmdb cache', () => {
 
     await sut.put(
       {
-        contractTxId: 'contract0',
+        key: 'contract0',
         sortKey: '000000860512,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
       },
       { result: 'contract0:sortKey0' }
     );
     await sut.put(
       {
-        contractTxId: 'contract1',
+        key: 'contract1',
         sortKey: '000000860513,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
       },
       { result: 'contract1:sortKey1' }
     );
     await sut.put(
       {
-        contractTxId: 'contract1',
+        key: 'contract1',
         sortKey: '000000860514,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
       },
       { result: 'contract1:sortKey2' }
     );
     await sut.put(
       {
-        contractTxId: 'contract1',
+        key: 'contract1',
         sortKey: '000000860515,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
       },
       { result: 'contract1:sortKey3' }
     );
     await sut.put(
       {
-        contractTxId: 'contract2',
+        key: 'contract2',
         sortKey: '000000860513,1643210931888,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
       },
       { result: 'contract2:sortKey1' }
@@ -58,8 +56,10 @@ describe('Lmdb cache', () => {
 
     expect(
       await sut.get(
-        'contract2',
-        '000000860513,1643210931888,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        new CacheKey(
+          'contract2',
+          '000000860513,1643210931888,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        )
       )
     ).toEqual({
       sortKey: '000000860513,1643210931888,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767',
@@ -67,8 +67,10 @@ describe('Lmdb cache', () => {
     });
     expect(
       await sut.get(
-        'contract1',
-        '000000860514,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        new CacheKey(
+          'contract1',
+          '000000860514,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        )
       )
     ).toEqual({
       sortKey: '000000860514,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767',
@@ -76,8 +78,10 @@ describe('Lmdb cache', () => {
     });
     expect(
       await sut.get(
-        'contract0',
-        '000000860512,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        new CacheKey(
+          'contract0',
+          '000000860512,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        )
       )
     ).toEqual({
       sortKey: '000000860512,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767',
@@ -85,20 +89,26 @@ describe('Lmdb cache', () => {
     });
     expect(
       await sut.get(
-        'contract0',
-        '000000860512,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b766'
+        new CacheKey(
+          'contract0',
+          '000000860512,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b766'
+        )
       )
     ).toEqual(null);
     expect(
       await sut.get(
-        'contract2',
-        '000000860514,1643210931888,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        new CacheKey(
+          'contract2',
+          '000000860514,1643210931888,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        )
       )
     ).toEqual(null);
     expect(
       await sut.get(
-        'contract1',
-        '000000860516,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        new CacheKey(
+          'contract1',
+          '000000860516,1643210931796,81e1bea09d3262ee36ce8cfdbbb2ce3feb18a717c3020c47d206cb8ecb43b767'
+        )
       )
     ).toEqual(null);
 
@@ -180,7 +190,7 @@ describe('Lmdb cache', () => {
     for (let j = 0; j < max; j++) {
       await sut.put(
         {
-          contractTxId: getContractId(0),
+          key: getContractId(0),
           sortKey: getSortKey(j)
         },
         { result: `contract${0}:${j}` }
@@ -189,7 +199,7 @@ describe('Lmdb cache', () => {
 
     // All entries are available
     for (let j = 0; j < max; ++j) {
-      const result = await sut.get(getContractId(0), getSortKey(j));
+      const result = await sut.get(new CacheKey(getContractId(0), getSortKey(j)));
       expect(result).toBeTruthy();
       expect(result?.cachedValue.result).toBe(`contract${0}:${j}`);
     }
@@ -197,14 +207,14 @@ describe('Lmdb cache', () => {
     // This put causes cleanup
     await sut.put(
       {
-        contractTxId: getContractId(0),
+        key: getContractId(0),
         sortKey: getSortKey(max)
       },
       { result: `contract${0}:${max}` }
     );
 
     for (let i = 0; i <= max; i++) {
-      const result = await sut.get(getContractId(0), getSortKey(i));
+      const result = await sut.get(new CacheKey(getContractId(0), getSortKey(i)));
       if (i <= max - min) {
         expect(result).toBeFalsy();
       } else {
@@ -216,14 +226,14 @@ describe('Lmdb cache', () => {
     // This just adds another entry, no cleanup
     await sut.put(
       {
-        contractTxId: getContractId(0),
+        key: getContractId(0),
         sortKey: getSortKey(max + 1)
       },
       { result: `contract${0}:${max + 1}` }
     );
 
     for (let i = 0; i <= max + 1; i++) {
-      const result = await sut.get(getContractId(0), getSortKey(i));
+      const result = await sut.get(new CacheKey(getContractId(0), getSortKey(i)));
       if (i <= max - min) {
         expect(result).toBeFalsy();
       } else {
@@ -240,7 +250,7 @@ describe('Lmdb cache', () => {
     });
 
     const data = fs.readFileSync('./src/__tests__/problematic-strings.txt', 'utf-8');
-    await sut.put({ contractTxId: getContractId(0), sortKey: getSortKey(0) }, data);
+    await sut.put({ key: getContractId(0), sortKey: getSortKey(0) }, data);
 
     const tmp = await sut.getLast(getContractId(0));
     expect(tmp?.cachedValue).toBe(data);

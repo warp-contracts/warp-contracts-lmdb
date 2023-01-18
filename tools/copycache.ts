@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { LevelDbCache, defaultCacheOptions, CacheKey } from 'warp-contracts';
-import { LmdbCache } from '../src/LmdbCache'
+import { LmdbCache } from '../src'
 import { RootDatabase } from 'lmdb';
 
 async function main() {
