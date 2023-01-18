@@ -6,7 +6,8 @@ import {
   SortKeyCache,
   SortKeyCacheResult,
   PruneStats,
-  BatchDBOp, lastPossibleSortKey
+  BatchDBOp,
+  lastPossibleSortKey
 } from 'warp-contracts';
 import { RootDatabase, open } from 'lmdb';
 import { LmdbOptions } from './LmdbOptions';
@@ -127,7 +128,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
 
   async delete(key: string): Promise<void> {
     return this.db.childTransaction(() => {
-      this.db.getKeys({ start: `${key}|${genesisSortKey}`, end: `${key}|${lastPossibleKey}` }).forEach((key) => {
+      this.db.getKeys({ start: `${key}|${genesisSortKey}`, end: `${key}|${lastPossibleSortKey}` }).forEach((key) => {
         this.db.remove(key);
       });
     });
