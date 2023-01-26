@@ -1,22 +1,15 @@
 import * as fs from 'fs';
-import { cache, getContractId, getSortKey } from './utils';
+import { cache, getContractId, getSortKey, rmCacheDB } from './utils';
 import { CacheKey } from 'warp-contracts';
 
-describe('Lmdb cache', () => {
-  beforeEach(() => {
-    if (fs.existsSync('./cache')) {
-      fs.rmSync('./cache', { recursive: true });
-    }
-  });
+const DB_NAME = 'cache-test';
 
-  afterEach(() => {
-    if (fs.existsSync('./cache')) {
-      fs.rmSync('./cache', { recursive: true });
-    }
-  });
+describe('Lmdb cache', () => {
+  beforeEach(rmCacheDB(DB_NAME));
+  afterEach(rmCacheDB(DB_NAME));
 
   it('should return proper data', async () => {
-    const sut = await cache(0, 100);
+    const sut = await cache(DB_NAME, 0, 100);
 
     await sut.put(
       {
@@ -182,7 +175,7 @@ describe('Lmdb cache', () => {
   it('respects limits for max and min interactions per contract', async () => {
     const max = 10;
     const min = 2;
-    const sut = await cache(0, 0, {
+    const sut = await cache(DB_NAME, 0, 0, {
       minEntriesPerContract: min,
       maxEntriesPerContract: max
     });
@@ -244,7 +237,7 @@ describe('Lmdb cache', () => {
   });
 
   it('properly encodes entries', async () => {
-    const sut = await cache(0, 0, {
+    const sut = await cache(DB_NAME, 0, 0, {
       minEntriesPerContract: 100,
       maxEntriesPerContract: 1000
     });
