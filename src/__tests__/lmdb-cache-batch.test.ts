@@ -1,18 +1,14 @@
-import * as fs from 'fs';
 import { BatchDBOp, CacheKey } from 'warp-contracts';
-import { cache, delBatch, getContractId, getSortKey, putBatch } from './utils';
+import { cache, delBatch, getContractId, getSortKey, putBatch, rmCacheDB } from './utils';
+
+const DB_NAME = 'cache-batch';
 
 describe('Lmdb cache batch', () => {
-  beforeEach(() => {
-    fs.rmSync('./cache', { force: true, recursive: true });
-  });
-
-  afterEach(() => {
-    fs.rmSync('./cache', { force: true, recursive: true });
-  });
+  beforeEach(rmCacheDB(DB_NAME));
+  afterEach(rmCacheDB(DB_NAME));
 
   it('multiple operations', async () => {
-    const sut = await cache(1, 1);
+    const sut = await cache(DB_NAME, 1, 1);
 
     const batches: BatchDBOp<any>[] = [];
     batches.push(

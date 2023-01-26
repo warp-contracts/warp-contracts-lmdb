@@ -1,6 +1,7 @@
 import { LmdbCache } from '../LmdbCache';
 import { LmdbOptions } from '../LmdbOptions';
-import { defaultCacheOptions, DelBatch, PutBatch } from 'warp-contracts';
+import { DelBatch, PutBatch } from 'warp-contracts';
+import fs from 'fs';
 
 export const getContractId = (i: number) => `contract${i}`.padStart(43, '0');
 
@@ -18,7 +19,16 @@ export const delBatch = (delKey: string): DelBatch => ({
   key: delKey
 });
 
+export const rmCacheDB = function (dbName: string): () => any {
+  return () => {
+    if (fs.existsSync(`./cache/warp/${dbName}`)) {
+      fs.rmSync(`./cache/warp/${dbName}`, { recursive: true });
+    }
+  };
+};
+
 export const cache = async function (
+  dbName: string,
   numContracts: number,
   numRepeatingEntries: number,
   opt?: LmdbOptions
@@ -29,7 +39,7 @@ export const cache = async function (
         maxEntriesPerContract: 100 * numRepeatingEntries,
         minEntriesPerContract: 100 * numRepeatingEntries
       };
-  const sut = new LmdbCache<any>({ ...defaultCacheOptions, inMemory: true }, lmdbOptions);
+  const sut = new LmdbCache<any>({ dbLocation: `./cache/warp/${dbName}`, inMemory: true }, lmdbOptions);
 
   for (let i = 0; i < numContracts; i++) {
     for (let j = 0; j < numRepeatingEntries; j++) {
