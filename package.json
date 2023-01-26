@@ -27,8 +27,7 @@
     "yalc:publish": "yarn build && yalc publish --push",
     "test": "jest",
     "test:real": "jest ./src/__tests__/lmdb-real-data",
-    "test:load": "jest ./src/__tests__/lmdb-cache-load",
-    "test:unit": "jest ./src/__tests__/unit"
+    "test:load": "jest ./src/__tests__/lmdb-cache-load"
   },
   "license": "MIT",
   "author": "Redstone Team <dev@redstone.finance>",
