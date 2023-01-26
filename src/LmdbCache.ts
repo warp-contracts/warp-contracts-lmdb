@@ -1,13 +1,13 @@
 import {
   CacheKey,
   CacheOptions,
-  lastPossibleKey,
   genesisSortKey,
   LoggerFactory,
   SortKeyCache,
   SortKeyCacheResult,
   PruneStats,
-  BatchDBOp
+  BatchDBOp,
+  lastPossibleSortKey
 } from 'warp-contracts';
 import { RootDatabase, open } from 'lmdb';
 import { LmdbOptions } from './LmdbOptions';
@@ -60,7 +60,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async getLast(key: string): Promise<SortKeyCacheResult<V> | null> {
-    const result = this.db.getRange({ start: `${key}|${lastPossibleKey}`, reverse: true, limit: 1 }).asArray;
+    const result = this.db.getRange({ start: `${key}|${lastPossibleSortKey}`, reverse: true, limit: 1 }).asArray;
     if (result.length) {
       if (!result[0].key.startsWith(key)) {
         return null;
@@ -128,7 +128,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
 
   async delete(key: string): Promise<void> {
     return this.db.childTransaction(() => {
-      this.db.getKeys({ start: `${key}|${genesisSortKey}`, end: `${key}|${lastPossibleKey}` }).forEach((key) => {
+      this.db.getKeys({ start: `${key}|${genesisSortKey}`, end: `${key}|${lastPossibleSortKey}` }).forEach((key) => {
         this.db.remove(key);
       });
     });

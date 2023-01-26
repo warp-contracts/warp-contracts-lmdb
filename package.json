@@ -65,6 +65,6 @@
     "typescript": "^4.9.4"
   },
   "peerDependencies": {
-    "warp-contracts": "^1.2.31"
+    "warp-contracts": "^1.2.48"
   }
 }
