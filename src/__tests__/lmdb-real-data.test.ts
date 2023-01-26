@@ -1,5 +1,5 @@
 import { LmdbCache } from '../LmdbCache';
-import { defaultCacheOptions, PruneStats } from 'warp-contracts';
+import { defaultCacheOptions } from 'warp-contracts';
 
 describe.skip('Prune real Lmdb cache. Copy the real cache to ./cache, unskip and run npm run test:real', () => {
   test('handle real data', async () => {
