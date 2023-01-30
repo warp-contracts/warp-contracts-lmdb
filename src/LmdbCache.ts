@@ -36,14 +36,21 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     });
   }
 
+  /**
+   * Batch operations are all executed in one transaction using childTransaction.
+   * For each put there is an old entries removal run.
+   */
   async batch(opStack: BatchDBOp<V>[]) {
-    for (const op of opStack) {
-      if (op.type === 'put') {
-        await this.put(op.key, op.value);
-      } else if (op.type === 'del') {
-        await this.delete(op.key);
+    await this.db.childTransaction(async () => {
+      for (const op of opStack) {
+        if (op.type === 'put') {
+          await this.doPut(op.key, op.value);
+          await this.removeOldestEntries(op.key);
+        } else if (op.type === 'del') {
+          await this.doDelete(op.key);
+        }
       }
-    }
+    });
   }
 
   async get(cacheKey: CacheKey, returnDeepCopy?: boolean): Promise<SortKeyCacheResult<V> | null> {
@@ -95,43 +102,56 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
 
   async put(cacheKey: CacheKey, value: V): Promise<void> {
     return this.db.childTransaction(() => {
-      this.db.put(`${cacheKey.key}|${cacheKey.sortKey}`, value);
-
-      // Get number of elements that is already in cache.
-      // +1 to account for the element we just put and will be inserted with this transaction
-      const numInCache =
-        1 +
-        this.db.getKeysCount({
-          start: `${cacheKey.key}|${genesisSortKey}`,
-          end: `${cacheKey.key}|${cacheKey.sortKey}`
-        });
-
-      // Make sure there isn't too many entries for one contract
-      if (numInCache <= this.lmdbOptions.maxEntriesPerContract) {
-        // We're below the limit, finish
-        return;
-      }
-
-      // Remove the oldest entries, so after the final put there's minEntriesPerContract present
-      const numToRemove = numInCache - this.lmdbOptions.minEntriesPerContract;
-      // Remove entries one by one, it's in a transaction so changes will be applied all at once
-      this.db
-        .getKeys({
-          start: `${cacheKey.key}|${genesisSortKey}`,
-          limit: numToRemove
-        })
-        .forEach((key) => {
-          this.db.remove(key);
-        });
+      this.doPut(cacheKey, value);
+      this.removeOldestEntries(cacheKey);
     });
+  }
+
+  private async doPut(cacheKey: CacheKey, value: V): Promise<boolean> {
+    return this.db.put(`${cacheKey.key}|${cacheKey.sortKey}`, value);
+  }
+
+  private async removeOldestEntries(cacheKey: CacheKey) {
+    // Get number of elements that is already in cache.
+    // +1 to account for the element we just put and will be inserted with this transaction
+    const numInCache =
+      1 +
+      this.db.getKeysCount({
+        start: `${cacheKey.key}|${genesisSortKey}`,
+        end: `${cacheKey.key}|${cacheKey.sortKey}`
+      });
+
+    // Make sure there isn't too many entries for one contract
+    if (numInCache <= this.lmdbOptions.maxEntriesPerContract) {
+      // We're below the limit, finish
+      return;
+    }
+
+    // Remove the oldest entries, so after the final put there's minEntriesPerContract present
+    const numToRemove = numInCache - this.lmdbOptions.minEntriesPerContract;
+    // Remove entries one by one, it's in a transaction so changes will be applied all at once
+    this.db
+      .getKeys({
+        start: `${cacheKey.key}|${genesisSortKey}`,
+        limit: numToRemove
+      })
+      .forEach((key) => {
+        this.db.remove(key);
+      });
   }
 
   async delete(key: string): Promise<void> {
     return this.db.childTransaction(() => {
-      this.db.getKeys({ start: `${key}|${genesisSortKey}`, end: `${key}|${lastPossibleSortKey}` }).forEach((key) => {
+      this.doDelete(key);
+    });
+  }
+
+  private async doDelete(key: string): Promise<void> {
+    return this.db
+      .getKeys({ start: `${key}|${genesisSortKey}`, end: `${key}|${lastPossibleSortKey}` })
+      .forEach((key) => {
         this.db.remove(key);
       });
-    });
   }
 
   open(): Promise<void> {
