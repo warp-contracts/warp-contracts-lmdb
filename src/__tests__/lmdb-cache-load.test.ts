@@ -1,8 +1,9 @@
 import * as fs from 'fs';
-import { cache } from './utils';
+import { cache, rmCacheDB } from './utils';
 import { promisify } from 'util';
 import fastFolderSize from 'fast-folder-size';
 
+const DB_NAME = 'cache-load';
 const cacheSizes = [1, 100, 500, 1000, 3000, 5000, 10000, 30000, 50000, 70000, 100000];
 
 const saveCacheSize = async (n: number, creation: number, access: number, deletion: number) => {
@@ -24,9 +25,7 @@ describe.skip('Lmdb cache load tests', () => {
     fs.appendFileSync('./threshold.csv', `Min,Max,Delta,CacheSize,SizeMB,CreationMs\n`, { flag: 'a' });
   });
 
-  afterEach(() => {
-    fs.rmSync('./cache', { force: true, recursive: true });
-  });
+  afterEach(rmCacheDB(DB_NAME));
 
   it.skip('time to fill cache', async () => {
     for (let i = cacheSizes.length - 1; i >= 0; --i) {
@@ -35,7 +34,7 @@ describe.skip('Lmdb cache load tests', () => {
 
       // Create the cache
       let start = new Date().getTime();
-      const sut = await cache(cacheSizes[i], 100, {
+      const sut = await cache(DB_NAME, cacheSizes[i], 100, {
         maxEntriesPerContract: 15,
         minEntriesPerContract: 2
       });
@@ -72,7 +71,7 @@ describe.skip('Lmdb cache load tests', () => {
 
         // Create the cache
         const start = new Date().getTime();
-        const sut = await cache(cacheSize, max * 3, {
+        const sut = await cache(DB_NAME, cacheSize, max * 3, {
           maxEntriesPerContract: max,
           minEntriesPerContract: min
         });
