@@ -9,13 +9,17 @@ import {
   BatchDBOp,
   lastPossibleSortKey
 } from 'warp-contracts';
-import { RootDatabase, open } from 'lmdb';
+import { RootDatabase, open, RangeOptions } from 'lmdb';
 import { LmdbOptions } from './LmdbOptions';
+import { SortKeyCacheRangeOptions } from 'warp-contracts/lib/types/cache/SortKeyCacheRangeOptions';
 
 export class LmdbCache<V = any> implements SortKeyCache<V> {
   private readonly logger = LoggerFactory.INST.create('LmdbCache');
+  private readonly ongoingTransactionMark = '$$warp-internal-transaction$$';
+  private readonly subLevelSeparator = '|';
 
-  private db: RootDatabase<V, string>;
+  private db: RootDatabase<ClientValueWrapper<V>, string>;
+  private rollbackBatch: () => void;
 
   constructor(private readonly cacheOptions: CacheOptions, private readonly lmdbOptions?: LmdbOptions) {
     if (!cacheOptions.dbLocation) {
@@ -30,7 +34,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     }
 
     this.logger.info(`Using location ${cacheOptions.dbLocation}`);
-    this.db = open<V, string>({
+    this.db = open<ClientValueWrapper<V>, string>({
       path: `${cacheOptions.dbLocation}`,
       noSync: cacheOptions.inMemory
     });
@@ -41,10 +45,10 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
    * For each put there is an old entries removal run.
    */
   async batch(opStack: BatchDBOp<V>[]) {
-    await this.db.childTransaction(async () => {
+    await this.db.transactionSync(async () => {
       for (const op of opStack) {
         if (op.type === 'put') {
-          await this.doPut(op.key, op.value);
+          await this.doPut(op.key, new ClientValueWrapper(op.value));
           await this.removeOldestEntries(op.key);
         } else if (op.type === 'del') {
           await this.doDelete(op.key);
@@ -54,61 +58,78 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
   }
 
   async get(cacheKey: CacheKey, returnDeepCopy?: boolean): Promise<SortKeyCacheResult<V> | null> {
-    const result = this.db.get(`${cacheKey.key}|${cacheKey.sortKey}`) || null;
-
-    if (result) {
-      return {
-        sortKey: cacheKey.sortKey,
-        cachedValue: result
-      };
-    } else {
-      return null;
-    }
+    const joinedKey = this.dbEntryKey(cacheKey);
+    const result = this.db.get(joinedKey) || null;
+    return this.joinedKeyResultToSortKeyCache({ key: joinedKey, value: result });
   }
 
   async getLast(key: string): Promise<SortKeyCacheResult<V> | null> {
-    const result = this.db.getRange({ start: `${key}|${lastPossibleSortKey}`, reverse: true, limit: 1 }).asArray;
-    if (result.length) {
-      if (!result[0].key.startsWith(key)) {
-        return null;
-      }
-      return {
-        sortKey: result[0].key.split('|')[1],
-        cachedValue: result[0].value
-      };
-    } else {
-      return null;
+    const result = this.db.getRange({
+      start: `${key}${this.subLevelSeparator}${lastPossibleSortKey}`,
+      reverse: true,
+      limit: 1
+    }).asArray;
+    if (result.length && result[0].key.startsWith(key)) {
+      return this.joinedKeyResultToSortKeyCache(result[0]);
     }
+    return null;
   }
 
   async getLessOrEqual(key: string, sortKey: string): Promise<SortKeyCacheResult<V> | null> {
     const result = this.db.getRange({
-      start: `${key}|${sortKey}`,
+      start: `${key}${this.subLevelSeparator}${sortKey}`,
       reverse: true,
       limit: 1
     }).asArray;
-    if (result.length) {
-      if (!result[0].key.startsWith(key)) {
-        return null;
-      }
-      return {
-        sortKey: result[0].key.split('|')[1],
-        cachedValue: result[0].value
-      };
-    } else {
-      return null;
+
+    if (result.length && result[0].key.startsWith(key)) {
+      return this.joinedKeyResultToSortKeyCache(result[0]);
     }
+    return null;
+  }
+
+  private async joinedKeyResultToSortKeyCache(joinedKeyResult: {
+    key: string;
+    value: ClientValueWrapper<V>;
+  }): Promise<SortKeyCacheResult<V> | null> {
+    const wrappedValue = joinedKeyResult.value;
+
+    if (wrappedValue && wrappedValue.tomb === undefined && wrappedValue.value === undefined) {
+      return new SortKeyCacheResult<V>(joinedKeyResult.key.split(this.subLevelSeparator)[1], wrappedValue as V);
+    }
+
+    if (wrappedValue && wrappedValue.tomb === false && wrappedValue.value != null) {
+      return new SortKeyCacheResult<V>(joinedKeyResult.key.split(this.subLevelSeparator)[1], wrappedValue.value);
+    }
+    return null;
   }
 
   async put(cacheKey: CacheKey, value: V): Promise<void> {
     return this.db.childTransaction(() => {
-      this.doPut(cacheKey, value);
+      this.doPut(cacheKey, new ClientValueWrapper(value));
       this.removeOldestEntries(cacheKey);
     });
   }
 
-  private async doPut(cacheKey: CacheKey, value: V): Promise<boolean> {
-    return this.db.put(`${cacheKey.key}|${cacheKey.sortKey}`, value);
+  async del(cacheKey: CacheKey): Promise<void> {
+    await this.doPut(cacheKey, new ClientValueWrapper(null, true));
+  }
+
+  private async doPut(cacheKey: CacheKey, value: ClientValueWrapper<V>): Promise<boolean> {
+    const putResult = await this.db.put(this.dbEntryKey(cacheKey), value);
+    if (putResult) {
+      const previousCalls = this.rollbackBatch;
+      const db = this.db;
+      this.rollbackBatch = () => {
+        db.removeSync(this.dbEntryKey(cacheKey));
+        previousCalls();
+      };
+    }
+    return putResult;
+  }
+
+  private dbEntryKey(cacheKey: CacheKey): string {
+    return `${cacheKey.key}${this.subLevelSeparator}${cacheKey.sortKey}`;
   }
 
   private async removeOldestEntries(cacheKey: CacheKey) {
@@ -117,8 +138,8 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     const numInCache =
       1 +
       this.db.getKeysCount({
-        start: `${cacheKey.key}|${genesisSortKey}`,
-        end: `${cacheKey.key}|${cacheKey.sortKey}`
+        start: `${cacheKey.key}${this.subLevelSeparator}${genesisSortKey}`,
+        end: this.dbEntryKey(cacheKey)
       });
 
     // Make sure there isn't too many entries for one contract
@@ -132,7 +153,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     // Remove entries one by one, it's in a transaction so changes will be applied all at once
     this.db
       .getKeys({
-        start: `${cacheKey.key}|${genesisSortKey}`,
+        start: `${cacheKey.key}${this.subLevelSeparator}${genesisSortKey}`,
         limit: numToRemove
       })
       .forEach((key) => {
@@ -148,7 +169,10 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
 
   private async doDelete(key: string): Promise<void> {
     return this.db
-      .getKeys({ start: `${key}|${genesisSortKey}`, end: `${key}|${lastPossibleSortKey}` })
+      .getKeys({
+        start: `${key}${this.subLevelSeparator}${genesisSortKey}`,
+        end: `${key}${this.subLevelSeparator}${lastPossibleSortKey}`
+      })
       .forEach((key) => {
         this.db.remove(key);
       });
@@ -156,7 +180,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
 
   open(): Promise<void> {
     if (this.db == null) {
-      this.db = open<V, string>({
+      this.db = open<ClientValueWrapper<V>, string>({
         path: `${this.cacheOptions.dbLocation}`,
         noSync: this.cacheOptions.inMemory
       });
@@ -164,8 +188,8 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     return;
   }
 
-  close(): Promise<void> {
-    this.db.close();
+  async close(): Promise<void> {
+    await this.db.close();
     this.db = null;
     return;
   }
@@ -178,14 +202,8 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
     throw new Error('Not implemented yet');
   }
 
-  async keys(): Promise<string[]> {
-    const keys = this.db.getKeys();
-    const contracts = new Set<string>();
-    keys.forEach((k) => {
-      contracts.add(k.split('|')[0]);
-    });
-
-    return Array.from(contracts);
+  async keys(sortKey: string, options?: SortKeyCacheRangeOptions): Promise<string[]> {
+    return Array.from((await this.kvMap(sortKey, options)).keys());
   }
 
   storage<S>(): S {
@@ -206,7 +224,7 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
       this.db
         .getKeys({ end: null, reverse: true, snapshot: false })
         .filter((key) => {
-          const [contractId] = key.split('|', 1);
+          const [contractId] = key.split(this.subLevelSeparator, 1);
           if (contractId !== entryContractId) {
             // New entry
             entryContractId = contractId;
@@ -236,4 +254,70 @@ export class LmdbCache<V = any> implements SortKeyCache<V> {
       sizeAfter: statsAfter.mapSize
     };
   }
+
+  async begin(): Promise<void> {
+    await this.checkPreviousTransactionFinished();
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    await this.db.put(this.ongoingTransactionMark, 'ongoing');
+    const db = this.db;
+    this.rollbackBatch = () => {
+      return db.removeSync(this.ongoingTransactionMark);
+    };
+    return;
+  }
+
+  private async checkPreviousTransactionFinished() {
+    const transactionMarkValue = (await this.db.get(this.ongoingTransactionMark)) as unknown as string;
+
+    if (transactionMarkValue == 'ongoing') {
+      throw new Error(`Database seems to be in inconsistent state. The previous transaction has not finished.`);
+    }
+  }
+
+  async commit(): Promise<void> {
+    this.db.removeSync(this.ongoingTransactionMark);
+    this.rollbackBatch = () => {
+      return;
+    };
+  }
+
+  async kvMap(sortKey: string, options?: SortKeyCacheRangeOptions): Promise<Map<string, V>> {
+    const rangeOptions: RangeOptions = {
+      start: options?.reverse ? options?.lt : options?.gte,
+      end: options?.reverse ? options?.gte : options?.lt,
+      reverse: options?.reverse
+    };
+
+    const result: Map<string, V> = new Map();
+    const rangedKeys = this.db.getKeys(rangeOptions).filter((k) => k != this.ongoingTransactionMark);
+    for (const joinedKey of rangedKeys) {
+      const clientKey = joinedKey.split(this.subLevelSeparator)[0];
+      const wrappedValue = await this.getLessOrEqual(clientKey, sortKey);
+      if (wrappedValue) {
+        result.set(clientKey, (await this.getLessOrEqual(clientKey, sortKey)).cachedValue);
+      }
+    }
+
+    if (options?.limit) {
+      const limitedResult: Map<string, V> = new Map();
+      for (const item of Array.from(result.entries()).slice(0, options.limit)) {
+        limitedResult.set(item[0], item[1]);
+      }
+      return limitedResult;
+    }
+
+    return result;
+  }
+
+  async rollback(): Promise<void> {
+    await this.db.transactionSync(this.rollbackBatch);
+    this.rollbackBatch = () => {
+      return;
+    };
+  }
+}
+
+class ClientValueWrapper<V> {
+  constructor(readonly value: V, readonly tomb: boolean = false) {}
 }

@@ -90,7 +90,7 @@ describe('Lmdb cache prune', () => {
       }
     }
 
-    expect((await sut.keys()).length).toBe(contracts - 1);
+    expect((await sut.keys(getSortKey(entriesPerContract))).length).toBe(contracts - 1);
   });
 
   it('deletes contract from the middle of the cache', async () => {
@@ -113,6 +113,6 @@ describe('Lmdb cache prune', () => {
       }
     }
 
-    expect((await sut.keys()).length).toBe(contracts - 1);
+    expect((await sut.keys(getSortKey(entriesPerContract))).length).toBe(contracts - 1);
   });
 });
