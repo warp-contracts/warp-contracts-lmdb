@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { cache, rmCacheDB } from './utils';
+import { cache, getSortKey, rmCacheDB } from './utils';
 import { promisify } from 'util';
 import fastFolderSize from 'fast-folder-size';
 
@@ -41,7 +41,7 @@ describe.skip('Lmdb cache load tests', () => {
 
       const creation = new Date().getTime() - start;
 
-      const contracts = await sut.keys();
+      const contracts = await sut.keys(getSortKey(100));
 
       // Access every element
       start = new Date().getTime();

@@ -42,7 +42,7 @@
     "README.md"
   ],
   "dependencies": {
-    "lmdb": "2.7.3"
+    "lmdb": "2.7.11"
   },
   "devDependencies": {
     "@types/command-line-args": "^5.2.0",
@@ -64,6 +64,6 @@
     "typescript": "^4.9.4"
   },
   "peerDependencies": {
-    "warp-contracts": "^1.2.48"
+    "warp-contracts": "^1.4.2"
   }
 }
