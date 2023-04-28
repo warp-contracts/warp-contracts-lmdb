@@ -248,4 +248,19 @@ describe('Lmdb cache', () => {
     const tmp = await sut.getLast(getContractId(0));
     expect(tmp?.cachedValue).toBe(data);
   });
+
+  it.skip('handles big values', async () => {
+    const sut = await cache(0, 0, {
+      minEntriesPerContract: 100,
+      maxEntriesPerContract: 1000
+    });
+
+    let data = new Array<string>(100 * 1024 * 1024)
+    data = data.fill("a")
+
+    await sut.put({ contractTxId: getContractId(0), sortKey: getSortKey(0) }, data);
+
+    const tmp = await sut.getLast(getContractId(0));
+    expect(tmp?.cachedValue).toEqual(data);
+  });
 });
