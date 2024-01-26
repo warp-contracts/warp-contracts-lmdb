@@ -5,7 +5,10 @@
   "types": "./lib/types/index.d.ts",
   "main": "./lib/cjs/index.js",
   "exports": {
-    ".": "./lib/cjs/index.js"
+    ".": {
+      "default":  "./lib/cjs/index.js",
+      "types": "./lib/types/index.d.ts"
+    }
   },
   "sideEffects": false,
   "engines": {
